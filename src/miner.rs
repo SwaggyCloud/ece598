@@ -6,6 +6,17 @@ use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use std::time;
 
 use std::thread;
+use crate::transaction::{Transaction, generate_rand_transaction};
+use rand::Rng;
+use crate::crypto::merkle::MerkleTree;
+use crate::block::{Block, Header, Content};
+use std::time::{SystemTime, UNIX_EPOCH, Instant};
+use crate::crypto::hash::Hashable;
+use std::sync::{Arc, Mutex};
+use crate::blockchain::Blockchain;
+use hex_literal::hex;
+use crate::block;
+
 
 enum ControlSignal {
     Start(u64), // the number controls the lambda of interval between block generation
@@ -23,6 +34,7 @@ pub struct Context {
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
+    blkchain: Arc<Mutex<Blockchain>>,
 }
 
 #[derive(Clone)]
@@ -33,6 +45,7 @@ pub struct Handle {
 
 pub fn new(
     server: &ServerHandle,
+    blkchain: &Arc<Mutex<Blockchain>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
@@ -40,6 +53,7 @@ pub fn new(
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
         server: server.clone(),
+        blkchain: Arc::clone(blkchain),
     };
 
     let handle = Handle {
@@ -87,6 +101,10 @@ impl Context {
     }
 
     fn miner_loop(&mut self) {
+        use hex_literal::hex;
+        let mut num_blocks = 0;
+        let mut cnt = 1000;
+        let start = Instant::now();
         // main mining loop
         loop {
             // check and react to control signals
@@ -114,11 +132,34 @@ impl Context {
             // TODO: actual mining
 
             if let OperatingState::Run(i) = self.operating_state {
-                if i != 0 {
-                    let interval = time::Duration::from_micros(i as u64);
-                    thread::sleep(interval);
+                let mut chain = self.blkchain.lock().unwrap().clone();
+                let hash_val = chain.tip();
+                let dif = chain.key_val.get(&hash_val).unwrap().head.clone().unwrap().difficulty;
+
+                loop
+                {
+                    let mut new= block::generate_rand_block(&hash_val).clone();
+                    new.index = chain.key_val.get(&hash_val).unwrap().index+1;
+                    let mut time = start.elapsed().as_micros();
+                    if new.hash() <= dif {
+                        chain.insert(&new);
+                        // info!("got one coin");
+                        num_blocks += 1;
+                        break;
+                    }
+                    if time < 1000 {
+                        info!("time out");
+                    }
                 }
             }
+            let time = start.elapsed().as_secs();
+
+            if time >= 10{
+                break;
+                info!("time out");
+            }
         }
+        let duration = start.elapsed();
+        println!("Time elapsed in mining {} blocks is: {:?}", num_blocks, duration);
     }
 }
