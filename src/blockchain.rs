@@ -3,28 +3,25 @@ use super::*;
 use crate::block::Block;
 use crate::crypto::hash::{H256, Hashable};
 use std::collections::HashMap;
-use crate::block::test::generate_random_block;
+// use crate::block::test::generate_random_block;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Blockchain {
-    length: usize,
-    genesis: H256,
-    tip: H256,
-    key_val: HashMap<H256,Block>,
+    pub length: usize,
+    pub genesis: H256,
+    pub tip: H256,
+    pub key_val: HashMap<H256,Block>,
 }
 
 impl Blockchain {
     /// Create a new blockchain, only containing the genesis block
     pub fn new() -> Self {
-        // unimplemented!()
-//        let a = [0;32];
-//        let para: H256 = crypto::hash::H256::from(a);
-//        let buf: Block = generate_random_block(&para);
         let buf = Block{
             head: None,
             body: None,
             index:0,
         };
+
         let tip:H256 = buf.hash();
         let genesis = buf.hash();
         let mut map = HashMap::new();
