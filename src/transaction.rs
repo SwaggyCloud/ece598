@@ -19,6 +19,16 @@ impl Hashable for Transaction {
     }
 }
 
+pub fn generate_rand_transaction() -> Transaction {
+    extern crate rand;
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let n1: u8 = rng.gen();
+    let t = Transaction{msg: n1};
+    return t;
+    //unimplemented!()
+}
+
 /// Create digital signature of a transaction
 pub fn sign(t: &Transaction, key: &Ed25519KeyPair) -> Signature {
     //unimplemented!()
