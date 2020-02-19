@@ -2,6 +2,8 @@ use serde::{Serialize, Deserialize};
 use crate::crypto::hash::{H256, Hashable};
 use crate::transaction::Transaction;
 use ring::digest;
+use crate::crypto::merkle;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header{
@@ -14,7 +16,7 @@ pub struct Header{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Content {
-    data: Vec<Transaction>,
+    pub data: Vec<Transaction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,7 +26,23 @@ pub struct Block {
     pub index: usize,
 }
 
-
+pub fn generate_rand_block(parent: &H256) -> Block{
+    use hex_literal::hex;
+    extern crate rand;
+    use crate::crypto::merkle::MerkleTree;
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let n1: u32 = rng.gen();
+    let dif = (hex!("00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")).into();
+    let data = Vec::new();
+    let merkle_tree = merkle::MerkleTree::new(&data);
+    let root = merkle_tree.root();
+    let single = Block{
+        head: Some(Header {block_parent:*parent,nonce:n1,difficulty:dif,mkl_root:root,time_stamp:SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64}),
+        body: Some(Content {data}),
+        index: 0, };
+    single
+}
 impl Hashable for Block {
     fn hash(&self) -> H256 {
         //unimplemented!()
