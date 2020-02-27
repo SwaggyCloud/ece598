@@ -61,49 +61,50 @@ impl Context {
                 }
                 Message::NewBlockHashes(block_hashes) => {
                     println!("Received a NewBlockHash message");
-                    let mut new_block_hashes: Vec<H256> = Vec::new();
+                    let mut hash_vec: Vec<H256> = Vec::new();
                     let mut blockchain = self.blkchain.lock().unwrap();
                     //let hash = block_hashes.get(0).unwrap();
                     for hash in block_hashes{
                         if !blockchain.key_val.contains_key(&hash){
-                            new_block_hashes.push(hash);
+                            hash_vec.push(hash);
                         }
                     }
-                    if new_block_hashes.len() > 0 {
-                        peer.write(Message::GetBlocks(new_block_hashes));
+                    if hash_vec.len() > 0 {
+                        peer.write(Message::GetBlocks(hash_vec));
                     }
                 }
                 Message::GetBlocks(block_hashes) => {
                     println!("Received a GetBlocks message");
-                    let mut new_blocks: Vec<Block> = Vec::new();
+                    let mut blocks_vec: Vec<Block> = Vec::new();
                     let mut blockchain = self.blkchain.lock().unwrap();
                     for hash in block_hashes{
                         if blockchain.key_val.contains_key(&hash){
-                            new_blocks.push(blockchain.key_val.get(&hash).unwrap().clone());
+                            blocks_vec.push(blockchain.key_val.get(&hash).unwrap().clone());
                         }
                     }
-                    if new_blocks.len() > 0 {
-                        peer.write(Message::Blocks(new_blocks));
+                    if blocks_vec.len() > 0 {
+                        peer.write(Message::Blocks(blocks_vec));
                     }
                 }
                 Message::Blocks(blocks) => {
                     let mut blockchain = self.blkchain.lock().unwrap();
-                    println!("Received blocks");
-                    let mut new_block_hashes: Vec<H256> = Vec::new();
+                    println!("Received a Blocks Message");
+                    let mut hash_vec: Vec<H256> = Vec::new();
                     for block in blocks {
                         if !blockchain.key_val.contains_key(&block.hash()){
                             let parent = block.head.block_parent;
                             if blockchain.key_val.contains_key(&parent) {
                                 blockchain.insert(&block);
-                                new_block_hashes.push(block.hash());
+                                hash_vec.push(block.hash());
                             }else{
                                 peer.write(Message::GetBlocks(vec![parent]));
                             }
                         }
                     }
+                    println!("total block in chain {}",blockchain.get_num());
                     drop(blockchain);
-                    if new_block_hashes.len() > 0 {
-                        self.server.broadcast(Message::NewBlockHashes(new_block_hashes));
+                    if hash_vec.len() > 0 {
+                        self.server.broadcast(Message::NewBlockHashes(hash_vec));
                     }
                 }
 
