@@ -21,8 +21,8 @@ pub struct Content {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-    pub head: Option<Header>,
-    pub body: Option<Content>,
+    pub head: Header,
+    pub body: Content,
     pub index: usize,
 }
 
@@ -33,13 +33,13 @@ pub fn generate_rand_block(parent: &H256) -> Block{
     use rand::Rng;
     let mut rng = rand::thread_rng();
     let n1: u32 = rng.gen();
-    let dif = (hex!("00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")).into();
+    let dif = (hex!("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")).into();
     let data = Vec::new();
     let merkle_tree = merkle::MerkleTree::new(&data);
     let root = merkle_tree.root();
     let single = Block{
-        head: Some(Header {block_parent:*parent,nonce:n1,difficulty:dif,mkl_root:root,time_stamp:SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64}),
-        body: Some(Content {data}),
+        head: Header {block_parent:*parent,nonce:0,difficulty:dif,mkl_root:root,time_stamp:SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64},
+        body: Content {data},
         index: 0, };
     single
 }
@@ -80,8 +80,8 @@ pub mod test {
         let merkle_tree = merkle::MerkleTree::new(&data);
         let root = merkle_tree.root();
         let single = Block{
-            head: Some(Header {block_parent:*parent,nonce:n1,difficulty:dif,mkl_root:root,time_stamp:ts}),
-            body: Some(Content {data}),
+            head: Header {block_parent:*parent,nonce:0,difficulty:dif,mkl_root:root,time_stamp:ts},
+            body: Content {data},
             index: 0, };
         single
     }
