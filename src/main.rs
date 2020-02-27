@@ -59,6 +59,10 @@ fn main() {
             process::exit(1);
         });
 
+    let mut blockchain = blockchain::Blockchain::new();
+    println!("{:}",blockchain.tip);
+    let mut blkchain = Arc::new(Mutex::new(blockchain));
+
     // create channels between server and worker
     let (msg_tx, msg_rx) = channel::unbounded();
 
@@ -79,12 +83,10 @@ fn main() {
         p2p_workers,
         msg_rx,
         &server,
+        &blkchain,
     );
     worker_ctx.start();
-    let mut blockchain = blockchain::Blockchain::new();
-    let mut example_block = block::generate_rand_block(&blockchain.tip()).clone();
-    blockchain.insert(&example_block);
-    let mut blkchain = Arc::new(Mutex::new(blockchain));
+
     // start the miner
     let (miner_ctx, miner) = miner::new(
         &server,
