@@ -16,6 +16,8 @@ use std::sync::{Arc, Mutex};
 use crate::blockchain::Blockchain;
 use hex_literal::hex;
 use crate::block;
+use crate::network::message::Message::NewBlockHashes;
+use crate::network::message::Message;
 
 
 enum ControlSignal {
@@ -103,7 +105,7 @@ impl Context {
     fn miner_loop(&mut self) {
         use hex_literal::hex;
         let mut num_blocks = 0;
-        let mut cnt = 1000;
+        // let mut cnt = 1000;
         let start = Instant::now();
         // main mining loop
         loop {
@@ -132,34 +134,49 @@ impl Context {
             // TODO: actual mining
 
             if let OperatingState::Run(i) = self.operating_state {
-                let mut chain = self.blkchain.lock().unwrap().clone();
+                let chain = self.blkchain.lock().unwrap();
                 let hash_val = chain.tip();
-                let dif = chain.key_val.get(&hash_val).unwrap().head.clone().unwrap().difficulty;
-
+                let dif = chain.key_val.get(&hash_val).unwrap().head.clone().difficulty;
+                drop(chain);
+                let mut chain = self.blkchain.lock().unwrap();
+                let mut new= block::generate_rand_block(&hash_val);
+                new.index = chain.key_val.get(&hash_val).unwrap().index+1;
+                drop(chain);
                 loop
                 {
-                    let mut new= block::generate_rand_block(&hash_val).clone();
-                    new.index = chain.key_val.get(&hash_val).unwrap().index+1;
-                    let mut time = start.elapsed().as_micros();
+                    // let mut time = start.elapsed().as_micros();
+                    let mut rng = rand::thread_rng();
+                    new.head.nonce = rng.gen::<u32>();
                     if new.hash() <= dif {
+                        let mut chain = self.blkchain.lock().unwrap();
                         chain.insert(&new);
-                        // info!("got one coin");
+                        drop(chain);
+                        let mut block_vec = Vec::new();
+                        block_vec.push(new.hash());
+                        let msg = Message::NewBlockHashes(block_vec);
+                        self.server.broadcast(msg);
+                        // info!("got one block");
                         num_blocks += 1;
+                        info!("{}", num_blocks);
+                        // println!("{}",num_blocks);
+
                         break;
                     }
-                    if time < 1000 {
-                        info!("time out");
-                    }
+                }
+                let time = start.elapsed().as_secs();
+
+                if time >= 30{
+                    let chain = self.blkchain.lock().unwrap();
+                    let chain_blocks = chain.get_num();
+                    println!("length of the blockchain {}", chain_blocks);
+                    println!("Time elapsed in mining {} blocks is: {:?}s", num_blocks, time);
+                    break;
+                    info!("time out");
+                    drop(chain);
                 }
             }
-            let time = start.elapsed().as_secs();
 
-            if time >= 10{
-                break;
-                info!("time out");
-            }
         }
-        let duration = start.elapsed();
-        println!("Time elapsed in mining {} blocks is: {:?}", num_blocks, duration);
+        // let duration = start.elapsed();
     }
 }
