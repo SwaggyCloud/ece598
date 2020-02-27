@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use super::*;
-use crate::block::Block;
+use crate::block::{Block, generate_rand_block};
 use crate::crypto::hash::{H256, Hashable};
 use std::collections::HashMap;
 // use crate::block::test::generate_random_block;
@@ -16,11 +16,16 @@ pub struct Blockchain {
 impl Blockchain {
     /// Create a new blockchain, only containing the genesis block
     pub fn new() -> Self {
-        let buf = Block{
-            head: None,
-            body: None,
-            index:0,
-        };
+        // unimplemented!()
+        let a = [0;32];
+        let para: H256 = crypto::hash::H256::from(a);
+        let mut buf: Block = generate_rand_block(&para);
+        buf.head.time_stamp = 0;
+//        let buf = Block{
+//            head: None,
+//            body: None,
+//            index:0,
+//        };
 
         let tip:H256 = buf.hash();
         let genesis = buf.hash();
@@ -35,20 +40,28 @@ impl Blockchain {
         }
     }
 
+    pub fn get_num(&self) -> usize {
+        return self.key_val.len();
+    }
+
     /// Insert a block into blockchain
     pub fn insert(&mut self, block: &Block) {
         let mut b = (*block).clone();
         let buf = b.clone();
-        let parent = b.head.unwrap().clone().block_parent;
-        let parent_block = (self.key_val.get(&parent).unwrap());
+        let parent = b.head.clone().block_parent;
+        let parent_block = self.key_val.get(&parent).unwrap();
+        println!("ha");
         let p = (parent_block.clone());
+        let new_idx = p.index + 1;
+        let new_head = buf.head;
+        let new_body = buf.body;
+        let new_blk = Block{head:new_head,body:new_body,index:new_idx};
 
-        if p.index == self.length {
-            b.index = p.index + 1;
-            self.length = buf.index;
-            self.tip = buf.hash();
+        if new_idx > self.length {
+            self.length = new_idx;
+            self.tip = new_blk.hash();
         }
-        self.key_val.insert(buf.hash(), buf);
+        self.key_val.insert(new_blk.hash(), new_blk);
         return;
     }
 
@@ -76,6 +89,11 @@ mod tests {
         let genesis_hash = blockchain.tip();
         let block = generate_random_block(&genesis_hash);
         blockchain.insert(&block);
+        let block1 = generate_random_block(&genesis_hash);
+        blockchain.insert(&block1);
+//        let block2 = generate_random_block(&block.hash());
+//        blockchain.insert(&block2);
         assert_eq!(blockchain.tip(), block.hash());
+//        assert_eq!(blockchain.length,0);
     }
 }
