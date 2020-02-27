@@ -133,6 +133,8 @@ impl Context {
             }
             ControlSignal::BroadcastMessage(msg) => {
                 trace!("Processing BroadcastMessage command");
+                println!("Peer list: {:?}", &self.peer_list);
+
                 for peer_id in &self.peer_list {
                     self.peers[*peer_id].handle.write(msg.clone());
                 }
