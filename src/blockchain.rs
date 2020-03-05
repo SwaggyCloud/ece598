@@ -11,6 +11,8 @@ pub struct Blockchain {
     pub genesis: H256,
     pub tip: H256,
     pub key_val: HashMap<H256,Block>,
+    pub orphan_buf: Vec<Block>,
+    pub prop_time: u64,
 }
 
 impl Blockchain {
@@ -30,6 +32,7 @@ impl Blockchain {
         let tip:H256 = buf.hash();
         let genesis = buf.hash();
         let mut map = HashMap::new();
+        let mut o_buf = Vec::new();
         map.insert(tip, buf);
 
         Blockchain {
@@ -37,6 +40,8 @@ impl Blockchain {
             genesis,
             tip,
             key_val: map,
+            orphan_buf:o_buf,
+            prop_time: 0,
         }
     }
 
@@ -50,7 +55,6 @@ impl Blockchain {
         let buf = b.clone();
         let parent = b.head.clone().block_parent;
         let parent_block = self.key_val.get(&parent).unwrap();
-        println!("ha");
         let p = (parent_block.clone());
         let new_idx = p.index + 1;
         let new_head = buf.head;
