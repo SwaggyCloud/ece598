@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::crypto::hash::{H256, Hashable};
-use crate::transaction::Transaction;
+use crate::transaction::{Transaction, generate_rand_transaction};
 use ring::digest;
 use crate::crypto::merkle;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -34,12 +34,18 @@ pub fn generate_rand_block(parent: &H256) -> Block{
     let mut rng = rand::thread_rng();
     let n1: u32 = rng.gen();
     let dif = (hex!("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")).into();
-    let data = Vec::new();
+
+    let mut data = Vec::new();
+    // let num_transactions = rng.gen_range(1, 10);
+    // for i in 0..num_transactions {
+    //     let random_transaction = generate_rand_transaction();
+    //     data.push(random_transaction);
+    // }
     let merkle_tree = merkle::MerkleTree::new(&data);
     let root = merkle_tree.root();
     let single = Block{
         head: Header {block_parent:*parent,nonce:0,difficulty:dif,mkl_root:root,time_stamp:SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64},
-        body: Content {data},
+        body: Content {data: data.clone()},
         index: 0, };
     single
 }
