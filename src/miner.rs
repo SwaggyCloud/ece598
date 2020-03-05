@@ -138,8 +138,16 @@ impl Context {
                 let hash_val = chain.tip();
                 let dif = chain.key_val.get(&hash_val).unwrap().head.clone().difficulty;
                 drop(chain);
+                let mut data = Vec::<Transaction>::new();
+                let mut rng = rand::thread_rng();
+                let num_transactions = rng.gen_range(1, 10);
+                for i in 0..num_transactions {
+                    let random_transaction = generate_rand_transaction();
+                    data.push(random_transaction);
+                }
                 let mut chain = self.blkchain.lock().unwrap();
                 let mut new= block::generate_rand_block(&hash_val);
+                new.body.data = data;
                 new.index = chain.key_val.get(&hash_val).unwrap().index+1;
                 drop(chain);
                 loop
@@ -158,7 +166,6 @@ impl Context {
                         // info!("got one block");
                         num_blocks += 1;
                         info!("{}", num_blocks);
-                        // println!("{}",num_blocks);
 
                         break;
                     }
