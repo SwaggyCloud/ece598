@@ -11,6 +11,8 @@ use crate::block::{Block};
 
 
 use std::thread;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use serde::Serialize;
 
 #[derive(Clone)]
 pub struct Context {
@@ -61,50 +63,79 @@ impl Context {
                 }
                 Message::NewBlockHashes(block_hashes) => {
                     println!("Received a NewBlockHash message");
-                    let mut hash_vec: Vec<H256> = Vec::new();
+                    let mut new_block_hashes: Vec<H256> = Vec::new();
                     let mut blockchain = self.blkchain.lock().unwrap();
                     //let hash = block_hashes.get(0).unwrap();
                     for hash in block_hashes{
                         if !blockchain.key_val.contains_key(&hash){
-                            hash_vec.push(hash);
+                            new_block_hashes.push(hash);
                         }
                     }
-                    if hash_vec.len() > 0 {
-                        peer.write(Message::GetBlocks(hash_vec));
+                    if new_block_hashes.len() > 0 {
+                        peer.write(Message::GetBlocks(new_block_hashes));
                     }
                 }
                 Message::GetBlocks(block_hashes) => {
                     println!("Received a GetBlocks message");
-                    let mut blocks_vec: Vec<Block> = Vec::new();
+                    let mut new_blocks: Vec<Block> = Vec::new();
                     let mut blockchain = self.blkchain.lock().unwrap();
                     for hash in block_hashes{
                         if blockchain.key_val.contains_key(&hash){
-                            blocks_vec.push(blockchain.key_val.get(&hash).unwrap().clone());
+                            new_blocks.push(blockchain.key_val.get(&hash).unwrap().clone());
                         }
                     }
-                    if blocks_vec.len() > 0 {
-                        peer.write(Message::Blocks(blocks_vec));
+                    if new_blocks.len() > 0 {
+                        peer.write(Message::Blocks(new_blocks));
                     }
                 }
                 Message::Blocks(blocks) => {
                     let mut blockchain = self.blkchain.lock().unwrap();
-                    println!("Received a Blocks Message");
-                    let mut hash_vec: Vec<H256> = Vec::new();
+                    println!("Received blocks");
+                    let mut new_block_hashes: Vec<H256> = Vec::new();
+                    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
                     for block in blocks {
                         if !blockchain.key_val.contains_key(&block.hash()){
-                            let parent = block.head.block_parent;
+                            let mut parent = block.head.block_parent;
                             if blockchain.key_val.contains_key(&parent) {
+
+                                let encoded: Vec<u8> = bincode::serialize(&block).unwrap();
+                                let size = encoded.len();
                                 blockchain.insert(&block);
-                                hash_vec.push(block.hash());
-                            }else{
-                                peer.write(Message::GetBlocks(vec![parent]));
+                                blockchain.prop_time+= start - block.head.time_stamp;
+                                println!("block size = {:?}", size);
+                                println!("Time elapsed in receiving one block is: {:?}ms",start - block.head.time_stamp);
+                                new_block_hashes.push(block.hash());
+                                let mut flag = 1;
+                                while flag!=0{
+                                    flag = 0;
+                                    let buf = blockchain.orphan_buf.clone();
+                                    let mut new_buf = Vec::new();
+                                    for orp in buf{
+                                        parent = orp.head.block_parent;
+                                        if blockchain.key_val.contains_key(&parent){
+                                            flag = 1;
+                                            blockchain.insert(&orp);
+                                            blockchain.prop_time+=start-orp.head.time_stamp;
+                                            println!("Time elapsed in receiving one block is: {:?}ms", start - orp.head.time_stamp);
+                                            new_block_hashes.push(orp.hash());
+                                        }
+                                        else{
+                                            new_buf.push(orp);
+                                        }
+                                    }
+                                    blockchain.orphan_buf = new_buf;
+                                }
+                            }
+                            else{
+                                blockchain.orphan_buf.push(block);
+                                //peer.write(Message::GetBlocks(vec![parent]));
                             }
                         }
                     }
                     println!("total block in chain {}",blockchain.get_num());
                     drop(blockchain);
-                    if hash_vec.len() > 0 {
-                        self.server.broadcast(Message::NewBlockHashes(hash_vec));
+                    if new_block_hashes.len() > 0 {
+                        self.server.broadcast(Message::NewBlockHashes(new_block_hashes));
                     }
                 }
 
