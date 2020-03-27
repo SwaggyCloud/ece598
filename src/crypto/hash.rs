@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::convert::TryInto;
+use rand::Rng;
+use ring::digest::digest;
 
 /// An object that can be meaningfully hashed.
 pub trait Hashable {
@@ -10,6 +12,34 @@ pub trait Hashable {
 /// A SHA256 hash.
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash, Default, Copy)]
 pub struct H256([u8; 32]); // big endian u256
+#[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash, Default, Copy)]
+pub struct H160([u8; 20]);
+
+impl H160 {
+    pub fn hash(data:&[u8]) -> H160 {
+        let hash_val = digest(&ring::digest::SHA256, data);
+        let mut val:[u8;20] = [0;20];
+        val.copy_from_slice(hash_val.as_ref()[12..32].as_ref());
+        H160(val)
+    }
+}
+
+pub fn generate_rand_hash256() -> H256 {
+    let mut rng = rand::thread_rng();
+    let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let mut raw_bytes = [0; 32];
+    raw_bytes.copy_from_slice(&random_bytes);
+    (&raw_bytes).into()
+}
+
+pub fn generate_rand_hash160() -> H160 {
+    let mut rng = rand::thread_rng();
+    let random_bytes: Vec<u8> = (0..20).map(|_| rng.gen()).collect();
+    let mut raw_bytes = [0; 20];
+    raw_bytes.copy_from_slice(&random_bytes);
+    (&raw_bytes).into()
+}
+
 
 impl Hashable for H256 {
     fn hash(&self) -> H256 {
@@ -45,6 +75,16 @@ impl std::fmt::Debug for H256 {
     }
 }
 
+impl std::fmt::Debug for H160 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{:>02x}{:>02x}..{:>02x}{:>02x}",
+            &self.0[0], &self.0[1], &self.0[18], &self.0[19]
+        )
+    }
+}
+
 impl std::convert::AsRef<[u8]> for H256 {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -58,6 +98,15 @@ impl std::convert::From<&[u8; 32]> for H256 {
         H256(buffer)
     }
 }
+
+impl std::convert::From<&[u8; 20]> for H160 {
+    fn from(input: &[u8; 20]) -> H160 {
+        let mut buffer: [u8; 20] = [0; 20];
+        buffer[..].copy_from_slice(input);
+        H160(buffer)
+    }
+}
+
 
 impl std::convert::From<&H256> for [u8; 32] {
     fn from(input: &H256) -> [u8; 32] {
