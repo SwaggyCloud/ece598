@@ -9,6 +9,8 @@ pub mod crypto;
 pub mod miner;
 pub mod network;
 pub mod transaction;
+pub mod state;
+pub mod mempool;
 
 use clap::clap_app;
 use crossbeam::channel;
@@ -21,6 +23,10 @@ use std::thread;
 use std::time;
 use std::sync::{Arc, Mutex};
 use hex_literal::hex;
+use crate::mempool::Mempool;
+use crate::crypto::key_pair;
+use ring::signature::KeyPair;
+use crate::crypto::hash::H160;
 
 fn main() {
     // parse command line arguments
@@ -60,9 +66,15 @@ fn main() {
         });
 
     let mut blockchain = blockchain::Blockchain::new();
+    let mut mempool = mempool::Mempool::new();
     println!("{:}",blockchain.tip);
     let mut blkchain = Arc::new(Mutex::new(blockchain));
-
+    let mut mem_pool = Arc::new(Mutex::new(mempool));
+    let mut address_list = Arc::new(Mutex::new(Vec::new()));
+    let key = key_pair::random();
+    let public_key = key.public_key();
+    let byte_pbkey = public_key.as_ref();
+    let address = H160::hash(&byte_pbkey);
     // create channels between server and worker
     let (msg_tx, msg_rx) = channel::unbounded();
 
@@ -84,6 +96,8 @@ fn main() {
         msg_rx,
         &server,
         &blkchain,
+        &mem_pool,
+        &address_list
     );
     worker_ctx.start();
 
@@ -91,6 +105,9 @@ fn main() {
     let (miner_ctx, miner) = miner::new(
         &server,
         &blkchain,
+        &mem_pool,
+        key,
+        &address
     );
     miner_ctx.start();
 
